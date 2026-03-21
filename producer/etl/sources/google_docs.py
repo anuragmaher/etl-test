@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 GDOC_MIME = "application/vnd.google-apps.document"
 PDF_MIME = "application/pdf"
+GSHEET_MIME = "application/vnd.google-apps.spreadsheet"
+XLSX_MIME = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 SCOPES = [
     "https://www.googleapis.com/auth/documents.readonly",
@@ -120,7 +122,7 @@ class GoogleDocsSource(Source):
                         "mimeType": mime,
                         "children": children,
                     })
-                elif mime in (GDOC_MIME, DOCX_MIME, PDF_MIME):
+                elif mime in (GDOC_MIME, DOCX_MIME, PDF_MIME, GSHEET_MIME, XLSX_MIME):
                     items.append({
                         "id": f["id"],
                         "name": f["name"],
@@ -141,7 +143,8 @@ class GoogleDocsSource(Source):
 
         # Query for both native Google Docs and uploaded .docx files
         mime_filter = (
-            f"(mimeType='{GDOC_MIME}' or mimeType='{DOCX_MIME}' or mimeType='{PDF_MIME}') and trashed=false"
+            f"(mimeType='{GDOC_MIME}' or mimeType='{DOCX_MIME}' or mimeType='{PDF_MIME}'"
+            f" or mimeType='{GSHEET_MIME}' or mimeType='{XLSX_MIME}') and trashed=false"
         )
         if self._folder_ids:
             folder_clauses = " or ".join(
@@ -169,6 +172,8 @@ class GoogleDocsSource(Source):
                     source_type = "google_docs"
                 elif mime == PDF_MIME:
                     source_type = "google_pdf"
+                elif mime in (GSHEET_MIME, XLSX_MIME):
+                    source_type = "google_sheet"
                 else:
                     source_type = "google_docx"
                 documents.append(
@@ -186,11 +191,12 @@ class GoogleDocsSource(Source):
                 break
 
         logger.info(
-            "Listed %d documents (%d Google Docs, %d .docx, %d PDF)",
+            "Listed %d documents (%d Google Docs, %d .docx, %d PDF, %d Sheets)",
             len(documents),
             sum(1 for d in documents if d.source_type == "google_docs"),
             sum(1 for d in documents if d.source_type == "google_docx"),
             sum(1 for d in documents if d.source_type == "google_pdf"),
+            sum(1 for d in documents if d.source_type == "google_sheet"),
         )
         return documents
 
@@ -225,6 +231,31 @@ class GoogleDocsSource(Source):
                 _, done = downloader.next_chunk()
             raw_content = buffer.getvalue()
             source_type = "google_pdf"
+        elif mime == GSHEET_MIME:
+            # Native Google Sheet — export as xlsx bytes
+            import io
+            request = self._drive_service.files().export_media(
+                fileId=doc_id,
+                mimeType=XLSX_MIME,
+            )
+            buffer = io.BytesIO()
+            downloader = MediaIoBaseDownload(buffer, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            raw_content = buffer.getvalue()
+            source_type = "google_sheet"
+        elif mime == XLSX_MIME:
+            # Uploaded .xlsx file — download raw bytes
+            import io
+            request = self._drive_service.files().get_media(fileId=doc_id, supportsAllDrives=True)
+            buffer = io.BytesIO()
+            downloader = MediaIoBaseDownload(buffer, request)
+            done = False
+            while not done:
+                _, done = downloader.next_chunk()
+            raw_content = buffer.getvalue()
+            source_type = "google_sheet"
         else:
             # .docx file — download raw bytes
             import io

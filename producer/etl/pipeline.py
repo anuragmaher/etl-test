@@ -7,6 +7,7 @@ from etl.state import SyncState
 from etl.transform import gdocs_to_markdown
 from etl.transform import docx_to_markdown
 from etl.transform import pdf_to_markdown
+from etl.transform import sheet_to_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -18,6 +19,7 @@ TRANSFORMER_REGISTRY = {
     "google_docs": gdocs_to_markdown.convert,
     "google_docx": docx_to_markdown.convert,
     "google_pdf": pdf_to_markdown.convert,
+    "google_sheet": sheet_to_markdown.convert,
 }
 
 

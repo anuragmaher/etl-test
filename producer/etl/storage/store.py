@@ -28,3 +28,11 @@ def save_pinecone_config(config: dict, path: str = "pinecone_config.json"):
 def is_pinecone_configured(path: str = "pinecone_config.json") -> bool:
     config = load_pinecone_config(path)
     return bool(config.get("api_key") and config.get("index_name") and config.get("openai_api_key"))
+
+
+def load_notion_config(path: str = "notion_config.json") -> dict:
+    return _load_json(path)
+
+
+def save_notion_config(config: dict, path: str = "notion_config.json"):
+    _save_json(path, config)

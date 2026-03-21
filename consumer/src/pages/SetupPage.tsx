@@ -1,58 +1,29 @@
 import { useState } from "react";
 import Layout from "../components/Layout";
 import GooglePickerButton from "../components/GooglePickerButton";
-import FileTreeView from "../components/FileTreeView";
+import NotionSetup from "../components/NotionSetup";
 import PineconeConfigForm from "../components/PineconeConfigForm";
 import { api } from "../api";
 import { useNavigate } from "react-router-dom";
 
-interface Folder {
+interface PickedFile {
   id: string;
   name: string;
+  mimeType: string;
 }
 
 export default function SetupPage() {
-  const [selectedFolders, setSelectedFolders] = useState<Folder[]>([]);
-  const [fileTree, setFileTree] = useState<any[]>([]);
-  const [loadingFiles, setLoadingFiles] = useState(false);
-  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [selectedFiles, setSelectedFiles] = useState<PickedFile[]>([]);
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
-
-  const handleFoldersSelected = async (folders: Folder[]) => {
-    setSelectedFolders(folders);
-    setFileTree([]);
-    setSelectedFileIds(new Set());
-    setMessage(null);
-
-    if (folders.length === 0) return;
-
-    setLoadingFiles(true);
-    try {
-      // Fetch files for all selected folders
-      const trees = await Promise.all(
-        folders.map(async (f) => {
-          const res = await api.listFolderFiles(f.id);
-          return { id: f.id, name: f.name, type: "folder" as const, mimeType: "", children: res.files };
-        })
-      );
-      setFileTree(trees);
-    } catch (err: any) {
-      setMessage({ type: "error", text: `Failed to load files: ${err.message}` });
-    } finally {
-      setLoadingFiles(false);
-    }
-  };
 
   const handleSaveSelection = async () => {
     setSaving(true);
     setMessage(null);
     try {
-      // Save both folder IDs and selected file IDs
-      await api.saveFolders(selectedFolders.map((f) => f.id));
-      await api.saveFiles(Array.from(selectedFileIds));
-      setMessage({ type: "success", text: `Saved ${selectedFileIds.size} file(s) for sync!` });
+      await api.saveFiles(selectedFiles.map((f) => f.id));
+      setMessage({ type: "success", text: `Saved ${selectedFiles.length} file(s) for sync!` });
     } catch (err: any) {
       setMessage({ type: "error", text: err.message });
     } finally {
@@ -63,38 +34,26 @@ export default function SetupPage() {
   return (
     <Layout>
       <div className="card">
-        <h2>1. Select Google Drive Folders</h2>
+        <h2>1. Select Files to Sync</h2>
         <p style={{ color: "#666", marginBottom: 16, fontSize: 14 }}>
-          Choose a folder, then select which files to sync.
+          Pick Google Docs, Sheets, PDFs, or DOCX files from your Drive.
         </p>
 
         <GooglePickerButton
-          selectedFolders={selectedFolders}
-          onFoldersSelected={handleFoldersSelected}
+          selectedFiles={selectedFiles}
+          onFilesSelected={setSelectedFiles}
         />
 
-        {loadingFiles && (
-          <p style={{ marginTop: 16, color: "#666" }}>Loading files...</p>
-        )}
-
-        {fileTree.length > 0 && !loadingFiles && (
-          <>
-            <FileTreeView
-              nodes={fileTree}
-              selectedIds={selectedFileIds}
-              onSelectionChange={setSelectedFileIds}
-            />
-
-            <div style={{ marginTop: 16 }}>
-              <button
-                className="btn btn-primary"
-                onClick={handleSaveSelection}
-                disabled={saving || selectedFileIds.size === 0}
-              >
-                {saving ? "Saving..." : `Save Selection (${selectedFileIds.size} files)`}
-              </button>
-            </div>
-          </>
+        {selectedFiles.length > 0 && (
+          <div style={{ marginTop: 16 }}>
+            <button
+              className="btn btn-primary"
+              onClick={handleSaveSelection}
+              disabled={saving}
+            >
+              {saving ? "Saving..." : `Save Selection (${selectedFiles.length} files)`}
+            </button>
+          </div>
         )}
 
         {message && (
@@ -105,7 +64,15 @@ export default function SetupPage() {
       </div>
 
       <div className="card">
-        <h2>2. Configure Pinecone</h2>
+        <h2>2. Connect Notion (Optional)</h2>
+        <p style={{ color: "#666", marginBottom: 16, fontSize: 14 }}>
+          Sync pages and databases from your Notion workspace.
+        </p>
+        <NotionSetup />
+      </div>
+
+      <div className="card">
+        <h2>3. Configure Pinecone</h2>
         <p style={{ color: "#666", marginBottom: 16, fontSize: 14 }}>
           Enter your Pinecone and OpenAI credentials for vector storage.
         </p>

@@ -49,6 +49,20 @@ export const api = {
       body: JSON.stringify(config),
     }),
 
+  // Notion
+  notionStatus: () => request("/notion/status"),
+  saveNotionToken: (token: string) =>
+    request("/notion/token", {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    }),
+  listNotionPages: () => request("/notion/pages"),
+  saveNotionPages: (pageIds: string[]) =>
+    request("/notion/pages", {
+      method: "POST",
+      body: JSON.stringify({ page_ids: pageIds }),
+    }),
+
   // Sync
   triggerSync: () => request("/sync", { method: "POST" }),
   syncStatus: () => request("/sync/status"),

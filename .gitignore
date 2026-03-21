@@ -3,6 +3,7 @@ token.json
 sync_state.json
 config.yaml
 pinecone_config.json
+notion_config.json
 output/
 __pycache__/
 *.pyc
@@ -11,3 +12,5 @@ venv/
 .venv/
 node_modules/
 dist/
+*.pdf
+.DS_Store

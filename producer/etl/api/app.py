@@ -9,6 +9,7 @@ from etl.api.auth import router as auth_router
 from etl.api.config_routes import router as config_router
 from etl.api.folders_routes import router as folders_router
 from etl.api.sync_routes import router as sync_router
+from etl.api.notion_routes import router as notion_router
 
 logging.basicConfig(
     level=logging.INFO,
@@ -30,6 +31,7 @@ app.include_router(auth_router)
 app.include_router(config_router)
 app.include_router(folders_router)
 app.include_router(sync_router)
+app.include_router(notion_router)
 
 
 @app.get("/health")

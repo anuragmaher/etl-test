@@ -8,6 +8,7 @@ from etl.transform import gdocs_to_markdown
 from etl.transform import docx_to_markdown
 from etl.transform import pdf_to_markdown
 from etl.transform import sheet_to_markdown
+from etl.transform import notion_to_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +21,8 @@ TRANSFORMER_REGISTRY = {
     "google_docx": docx_to_markdown.convert,
     "google_pdf": pdf_to_markdown.convert,
     "google_sheet": sheet_to_markdown.convert,
+    "notion_page": notion_to_markdown.convert,
+    "notion_database": notion_to_markdown.convert,
 }
 
 

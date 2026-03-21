@@ -23,11 +23,12 @@ SCOPES = [
 
 
 class GoogleDocsSource(Source):
-    def __init__(self, credentials_path: str, token_path: str, folder_ids: list = None):
+    def __init__(self, credentials_path: str = "", token_path: str = "",
+                 folder_ids: list = None, credentials: Credentials = None):
         self._credentials_path = credentials_path
         self._token_path = token_path
         self._folder_ids = folder_ids or []
-        self._creds = None
+        self._creds = credentials
         self._drive_service = None
         self._docs_service = None
 
@@ -53,7 +54,11 @@ class GoogleDocsSource(Source):
 
     def _ensure_authenticated(self):
         if self._drive_service is None:
-            self._authenticate()
+            if self._creds and self._creds.valid:
+                self._drive_service = build("drive", "v3", credentials=self._creds)
+                self._docs_service = build("docs", "v1", credentials=self._creds)
+            else:
+                self._authenticate()
 
     def list_folders(self) -> list:
         """List all folders in the user's Google Drive. Returns list of {id, name}."""

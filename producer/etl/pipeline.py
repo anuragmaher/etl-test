@@ -31,9 +31,12 @@ def _build_source(name: str, config: dict) -> Source:
     raise ValueError(f"Unknown source: {name}")
 
 
-def run_once(config: dict) -> None:
+def run_once(config: dict, pinecone_writer=None) -> dict:
+    """Run a single sync cycle. Returns stats dict with 'synced' and 'skipped' counts."""
     state = SyncState(config["state_path"])
     output_dir = config["output_directory"]
+    total_synced = 0
+    total_skipped = 0
 
     for source_name, source_config in config["sources"].items():
         if not source_config.get("enabled", False):
@@ -71,6 +74,19 @@ def run_once(config: dict) -> None:
                     last_modified=full_doc.modified_time,
                     markdown_content=markdown,
                 )
+                # Upsert to Pinecone if configured
+                if pinecone_writer:
+                    try:
+                        pinecone_writer.upsert_document(
+                            doc_id=full_doc.doc_id,
+                            title=full_doc.title,
+                            url=full_doc.url,
+                            source_type=full_doc.source_type,
+                            markdown=markdown,
+                        )
+                    except Exception:
+                        logger.exception("Failed to upsert to Pinecone: '%s'", full_doc.title)
+
                 state.mark_synced(
                     full_doc.source_type,
                     full_doc.doc_id,
@@ -82,9 +98,12 @@ def run_once(config: dict) -> None:
             except Exception:
                 logger.exception("Failed to sync document '%s' (%s)", doc.title, doc.doc_id)
 
+        total_synced += synced
+        total_skipped += skipped
         logger.info(
             "Source '%s' complete: %d synced, %d skipped (unchanged)",
             source_name, synced, skipped,
         )
 
     state.save()
+    return {"synced": total_synced, "skipped": total_skipped}

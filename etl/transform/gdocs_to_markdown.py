@@ -113,11 +113,8 @@ def _convert_table(table: dict, doc: dict) -> str:
     return "\n".join(md_rows)
 
 
-def convert(doc_json: dict) -> str:
-    """Convert a Google Docs API document JSON to a Markdown string."""
-    body = doc_json.get("body", {})
-    content = body.get("content", [])
-
+def _convert_body(content: list, doc_json: dict) -> str:
+    """Convert a list of structural elements to Markdown."""
     parts = []
     prev_had_bullet = False
 
@@ -144,9 +141,63 @@ def convert(doc_json: dict) -> str:
         elif "sectionBreak" in element:
             prev_had_bullet = False
 
-    # Join and clean up: collapse 3+ consecutive blank lines to 2
     result = "\n".join(parts)
     while "\n\n\n" in result:
         result = result.replace("\n\n\n", "\n\n")
 
-    return result.strip() + "\n"
+    return result.strip()
+
+
+def _get_tabs(tab: dict) -> list:
+    """Recursively collect a tab and all its child tabs."""
+    tabs = [tab]
+    for child in tab.get("childTabs", []):
+        tabs.extend(_get_tabs(child))
+    return tabs
+
+
+def convert(doc_json: dict) -> str:
+    """Convert a Google Docs API document JSON to a Markdown string.
+
+    Supports both the legacy body.content format and the newer tabs format.
+    When multiple tabs exist, each tab is rendered as a section with a heading.
+    """
+    tabs = doc_json.get("tabs", [])
+
+    if tabs:
+        # Tabs format — collect all tabs (including nested child tabs)
+        all_tabs = []
+        for tab in tabs:
+            all_tabs.extend(_get_tabs(tab))
+
+        if len(all_tabs) == 1:
+            # Single tab — no need for tab headings
+            tab = all_tabs[0]
+            doc_tab = tab.get("documentTab", {})
+            body = doc_tab.get("body", {})
+            content = body.get("content", [])
+            # Merge lists from documentTab into doc_json for list style lookups
+            merged = {**doc_json, "lists": doc_tab.get("lists", doc_json.get("lists", {}))}
+            return _convert_body(content, merged) + "\n"
+
+        # Multiple tabs — add tab title as heading separator
+        sections = []
+        for tab in all_tabs:
+            tab_props = tab.get("tabProperties", {})
+            tab_title = tab_props.get("title", "Untitled Tab")
+            doc_tab = tab.get("documentTab", {})
+            body = doc_tab.get("body", {})
+            content = body.get("content", [])
+            merged = {**doc_json, "lists": doc_tab.get("lists", doc_json.get("lists", {}))}
+
+            section_md = _convert_body(content, merged)
+            if section_md:
+                sections.append(f"# {tab_title}\n\n{section_md}")
+
+        return "\n\n---\n\n".join(sections) + "\n"
+
+    else:
+        # Legacy format — body.content directly
+        body = doc_json.get("body", {})
+        content = body.get("content", [])
+        return _convert_body(content, doc_json) + "\n"

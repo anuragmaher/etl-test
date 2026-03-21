@@ -147,7 +147,10 @@ class GoogleDocsSource(Source):
 
         if mime == GDOC_MIME:
             # Native Google Doc — use Docs API
-            doc_json = self._docs_service.documents().get(documentId=doc_id).execute()
+            doc_json = self._docs_service.documents().get(
+                documentId=doc_id,
+                includeTabsContent=True,
+            ).execute()
             raw_content = doc_json
             source_type = "google_docs"
         else:

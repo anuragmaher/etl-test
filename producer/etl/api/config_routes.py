@@ -6,7 +6,7 @@ import yaml
 from fastapi import APIRouter, HTTPException
 
 from etl.api.dependencies import get_config, reload_config
-from etl.api.models import ConfigResponse, FolderSelection, PineconeConfig
+from etl.api.models import ConfigResponse, FileSelection, FolderSelection, PineconeConfig
 from etl.storage.store import is_pinecone_configured, load_pinecone_config, save_pinecone_config
 
 logger = logging.getLogger(__name__)
@@ -20,6 +20,7 @@ async def get_current_config():
     source_config = config.get("sources", {}).get("google_docs", {})
     return ConfigResponse(
         folder_ids=source_config.get("folder_ids", []),
+        file_ids=source_config.get("file_ids", []),
         pinecone_configured=is_pinecone_configured(),
         output_directory=config.get("output_directory", "./output"),
     )
@@ -49,6 +50,32 @@ async def save_folders(selection: FolderSelection):
     reload_config()
     logger.info("Saved %d folder IDs to config", len(selection.folder_ids))
     return {"status": "ok", "folder_count": len(selection.folder_ids)}
+
+
+@router.post("/files")
+async def save_files(selection: FileSelection):
+    """Save selected file IDs to sync."""
+    config_path = "config.yaml"
+    try:
+        with open(config_path) as f:
+            raw_config = yaml.safe_load(f) or {}
+    except FileNotFoundError:
+        raw_config = {}
+
+    if "sources" not in raw_config:
+        raw_config["sources"] = {}
+    if "google_docs" not in raw_config["sources"]:
+        raw_config["sources"]["google_docs"] = {}
+
+    raw_config["sources"]["google_docs"]["enabled"] = True
+    raw_config["sources"]["google_docs"]["file_ids"] = selection.file_ids
+
+    with open(config_path, "w") as f:
+        yaml.dump(raw_config, f, default_flow_style=False, sort_keys=False)
+
+    reload_config()
+    logger.info("Saved %d file IDs to config", len(selection.file_ids))
+    return {"status": "ok", "file_count": len(selection.file_ids)}
 
 
 @router.post("/pinecone")

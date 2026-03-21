@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Layout from "../components/Layout";
 import GooglePickerButton from "../components/GooglePickerButton";
+import FileTreeView from "../components/FileTreeView";
 import PineconeConfigForm from "../components/PineconeConfigForm";
 import { api } from "../api";
 import { useNavigate } from "react-router-dom";
@@ -12,18 +13,48 @@ interface Folder {
 
 export default function SetupPage() {
   const [selectedFolders, setSelectedFolders] = useState<Folder[]>([]);
-  const [folderMessage, setFolderMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [fileTree, setFileTree] = useState<any[]>([]);
+  const [loadingFiles, setLoadingFiles] = useState(false);
+  const [selectedFileIds, setSelectedFileIds] = useState<Set<string>>(new Set());
+  const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const navigate = useNavigate();
 
-  const handleSaveFolders = async () => {
-    setSaving(true);
-    setFolderMessage(null);
+  const handleFoldersSelected = async (folders: Folder[]) => {
+    setSelectedFolders(folders);
+    setFileTree([]);
+    setSelectedFileIds(new Set());
+    setMessage(null);
+
+    if (folders.length === 0) return;
+
+    setLoadingFiles(true);
     try {
-      await api.saveFolders(selectedFolders.map((f) => f.id));
-      setFolderMessage({ type: "success", text: `Saved ${selectedFolders.length} folder(s)!` });
+      // Fetch files for all selected folders
+      const trees = await Promise.all(
+        folders.map(async (f) => {
+          const res = await api.listFolderFiles(f.id);
+          return { id: f.id, name: f.name, type: "folder" as const, mimeType: "", children: res.files };
+        })
+      );
+      setFileTree(trees);
     } catch (err: any) {
-      setFolderMessage({ type: "error", text: err.message });
+      setMessage({ type: "error", text: `Failed to load files: ${err.message}` });
+    } finally {
+      setLoadingFiles(false);
+    }
+  };
+
+  const handleSaveSelection = async () => {
+    setSaving(true);
+    setMessage(null);
+    try {
+      // Save both folder IDs and selected file IDs
+      await api.saveFolders(selectedFolders.map((f) => f.id));
+      await api.saveFiles(Array.from(selectedFileIds));
+      setMessage({ type: "success", text: `Saved ${selectedFileIds.size} file(s) for sync!` });
+    } catch (err: any) {
+      setMessage({ type: "error", text: err.message });
     } finally {
       setSaving(false);
     }
@@ -34,25 +65,41 @@ export default function SetupPage() {
       <div className="card">
         <h2>1. Select Google Drive Folders</h2>
         <p style={{ color: "#666", marginBottom: 16, fontSize: 14 }}>
-          Choose which folders to sync documents from.
+          Choose a folder, then select which files to sync.
         </p>
 
         <GooglePickerButton
           selectedFolders={selectedFolders}
-          onFoldersSelected={setSelectedFolders}
+          onFoldersSelected={handleFoldersSelected}
         />
 
-        {selectedFolders.length > 0 && (
-          <div style={{ marginTop: 16 }}>
-            <button className="btn btn-primary" onClick={handleSaveFolders} disabled={saving}>
-              {saving ? "Saving..." : "Save Folder Selection"}
-            </button>
-          </div>
+        {loadingFiles && (
+          <p style={{ marginTop: 16, color: "#666" }}>Loading files...</p>
         )}
 
-        {folderMessage && (
-          <div className={`message ${folderMessage.type}`} style={{ marginTop: 12 }}>
-            {folderMessage.text}
+        {fileTree.length > 0 && !loadingFiles && (
+          <>
+            <FileTreeView
+              nodes={fileTree}
+              selectedIds={selectedFileIds}
+              onSelectionChange={setSelectedFileIds}
+            />
+
+            <div style={{ marginTop: 16 }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveSelection}
+                disabled={saving || selectedFileIds.size === 0}
+              >
+                {saving ? "Saving..." : `Save Selection (${selectedFileIds.size} files)`}
+              </button>
+            </div>
+          </>
+        )}
+
+        {message && (
+          <div className={`message ${message.type}`} style={{ marginTop: 12 }}>
+            {message.text}
           </div>
         )}
       </div>

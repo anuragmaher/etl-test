@@ -28,12 +28,20 @@ export const api = {
   // Folders
   listFolders: () => request("/folders"),
 
+  // Files
+  listFolderFiles: (folderId: string) => request(`/folders/${folderId}/files`),
+
   // Config
   getConfig: () => request("/config"),
   saveFolders: (folderIds: string[]) =>
     request("/config/folders", {
       method: "POST",
       body: JSON.stringify({ folder_ids: folderIds }),
+    }),
+  saveFiles: (fileIds: string[]) =>
+    request("/config/files", {
+      method: "POST",
+      body: JSON.stringify({ file_ids: fileIds }),
     }),
   savePinecone: (config: { api_key: string; index_name: string; openai_api_key: string }) =>
     request("/config/pinecone", {

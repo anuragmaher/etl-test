@@ -21,6 +21,8 @@ _sync_status = {
     "last_run": None,
     "docs_synced": 0,
     "docs_skipped": 0,
+    "error": None,
+    "warnings": [],
 }
 _sync_lock = threading.Lock()
 
@@ -30,25 +32,33 @@ def _run_sync_thread(config: dict):
     global _sync_status
     try:
         _sync_status["status"] = "running"
+        _sync_status["error"] = None
+        _sync_status["warnings"] = []
 
         # Build Pinecone writer if configured
         pinecone_writer = None
         if is_pinecone_configured():
-            from etl.output.pinecone_writer import PineconeWriter
-            pc_config = load_pinecone_config()
-            pinecone_writer = PineconeWriter(
-                pinecone_api_key=pc_config["api_key"],
-                index_name=pc_config["index_name"],
-                openai_api_key=pc_config["openai_api_key"],
-            )
+            try:
+                from etl.output.pinecone_writer import PineconeWriter
+                pc_config = load_pinecone_config()
+                pinecone_writer = PineconeWriter(
+                    pinecone_api_key=pc_config["api_key"],
+                    index_name=pc_config["index_name"],
+                    openai_api_key=pc_config["openai_api_key"],
+                )
+            except Exception as e:
+                warning = f"Pinecone error: {e}. Syncing files only."
+                logger.warning(warning)
+                _sync_status["warnings"].append(warning)
 
         stats = run_once(config, pinecone_writer=pinecone_writer)
 
         _sync_status["docs_synced"] = stats.get("synced", 0)
         _sync_status["docs_skipped"] = stats.get("skipped", 0)
         _sync_status["last_run"] = datetime.now(timezone.utc).isoformat()
-    except Exception:
+    except Exception as e:
         logger.exception("Sync failed")
+        _sync_status["error"] = str(e)
     finally:
         _sync_status["status"] = "idle"
         _sync_lock.release()

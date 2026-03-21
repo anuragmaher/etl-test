@@ -5,7 +5,7 @@ import SyncStatusBadge from "../components/SyncStatusBadge";
 import { api } from "../api";
 
 export default function DashboardPage() {
-  const [status, setStatus] = useState({ status: "idle", last_run: null, docs_synced: 0, docs_skipped: 0 });
+  const [status, setStatus] = useState({ status: "idle", last_run: null, docs_synced: 0, docs_skipped: 0, error: null as string | null, warnings: [] as string[] });
   const [documents, setDocuments] = useState([]);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
@@ -71,6 +71,8 @@ export default function DashboardPage() {
           lastRun={status.last_run}
           docsSynced={status.docs_synced}
           docsSkipped={status.docs_skipped}
+          error={status.error}
+          warnings={status.warnings}
         />
 
         {error && <div className="message error" style={{ marginTop: 12 }}>{error}</div>}

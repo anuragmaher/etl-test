@@ -16,6 +16,10 @@ class FolderSelection(BaseModel):
     folder_ids: list[str]
 
 
+class FileSelection(BaseModel):
+    file_ids: list[str]
+
+
 class PineconeConfig(BaseModel):
     api_key: str
     index_name: str
@@ -24,6 +28,7 @@ class PineconeConfig(BaseModel):
 
 class ConfigResponse(BaseModel):
     folder_ids: list[str]
+    file_ids: list[str]
     pinecone_configured: bool
     output_directory: str
 
@@ -33,6 +38,8 @@ class SyncStatusResponse(BaseModel):
     last_run: Optional[str] = None
     docs_synced: int = 0
     docs_skipped: int = 0
+    error: Optional[str] = None
+    warnings: list[str] = []
 
 
 class DocumentResponse(BaseModel):

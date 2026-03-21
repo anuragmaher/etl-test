@@ -6,6 +6,7 @@ from etl.sources.google_docs import GoogleDocsSource
 from etl.state import SyncState
 from etl.transform import gdocs_to_markdown
 from etl.transform import docx_to_markdown
+from etl.transform import pdf_to_markdown
 
 logger = logging.getLogger(__name__)
 
@@ -16,18 +17,22 @@ SOURCE_REGISTRY = {
 TRANSFORMER_REGISTRY = {
     "google_docs": gdocs_to_markdown.convert,
     "google_docx": docx_to_markdown.convert,
+    "google_pdf": pdf_to_markdown.convert,
 }
 
 
-def _build_source(name: str, config: dict) -> Source:
+def _build_source(name: str, config: dict) -> tuple:
+    """Returns (source, file_ids) where file_ids is a list if specific files are selected, else None."""
     cls = SOURCE_REGISTRY[name]
     if name == "google_docs":
         source_config = config["sources"].get("google_docs", {})
-        return cls(
+        source = cls(
             credentials_path=config["credentials_path"],
             token_path=config["token_path"],
             folder_ids=source_config.get("folder_ids", []),
         )
+        file_ids = source_config.get("file_ids", []) or None
+        return source, file_ids
     raise ValueError(f"Unknown source: {name}")
 
 
@@ -47,9 +52,19 @@ def run_once(config: dict, pinecone_writer=None) -> dict:
             continue
 
         logger.info("Processing source: %s", source_name)
-        source = _build_source(source_name, config)
+        source, file_ids = _build_source(source_name, config)
 
-        documents = source.list_documents()
+        if file_ids:
+            # Sync only specific selected files
+            documents = []
+            for fid in file_ids:
+                try:
+                    doc = source.fetch_document(fid)
+                    documents.append(doc)
+                except Exception:
+                    logger.exception("Failed to fetch file %s", fid)
+        else:
+            documents = source.list_documents()
         synced = 0
         skipped = 0
 
@@ -59,7 +74,7 @@ def run_once(config: dict, pinecone_writer=None) -> dict:
                 continue
 
             try:
-                full_doc = source.fetch_document(doc.doc_id)
+                full_doc = doc if doc.raw_content is not None else source.fetch_document(doc.doc_id)
                 transform = TRANSFORMER_REGISTRY.get(full_doc.source_type)
                 if not transform:
                     logger.warning("No transformer for type '%s', skipping %s", full_doc.source_type, full_doc.title)

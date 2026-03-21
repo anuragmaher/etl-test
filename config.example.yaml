@@ -1,0 +1,12 @@
+polling_interval_seconds: 300
+output_directory: ./output
+credentials_path: ./credentials.json
+token_path: ./token.json
+state_path: ./sync_state.json
+api_key: ""  # Google API key (required for folder picker UI)
+log_level: INFO
+
+sources:
+  google_docs:
+    enabled: true
+    folder_ids: []  # Leave empty to fetch all Google Docs the user has access to

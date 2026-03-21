@@ -1,0 +1,152 @@
+{
+  "title": "Sample Document",
+  "body": {
+    "content": [
+      {
+        "sectionBreak": {}
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "HEADING_1"},
+          "elements": [
+            {"textRun": {"content": "Main Heading\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "elements": [
+            {"textRun": {"content": "This is a normal paragraph with ", "textStyle": {}}},
+            {"textRun": {"content": "bold text", "textStyle": {"bold": true}}},
+            {"textRun": {"content": " and ", "textStyle": {}}},
+            {"textRun": {"content": "italic text", "textStyle": {"italic": true}}},
+            {"textRun": {"content": ".\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "HEADING_2"},
+          "elements": [
+            {"textRun": {"content": "Sub Heading\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "elements": [
+            {"textRun": {"content": "A paragraph with a ", "textStyle": {}}},
+            {"textRun": {"content": "link", "textStyle": {"link": {"url": "https://example.com"}}}},
+            {"textRun": {"content": ".\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "bullet": {"listId": "list1", "nestingLevel": 0},
+          "elements": [
+            {"textRun": {"content": "First item\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "bullet": {"listId": "list1", "nestingLevel": 0},
+          "elements": [
+            {"textRun": {"content": "Second item\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "bullet": {"listId": "list1", "nestingLevel": 1},
+          "elements": [
+            {"textRun": {"content": "Nested item\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "elements": [
+            {"textRun": {"content": "After the list.\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "bullet": {"listId": "list2", "nestingLevel": 0},
+          "elements": [
+            {"textRun": {"content": "Ordered one\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "bullet": {"listId": "list2", "nestingLevel": 0},
+          "elements": [
+            {"textRun": {"content": "Ordered two\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "elements": [
+            {"textRun": {"content": "\n", "textStyle": {}}}
+          ]
+        }
+      },
+      {
+        "table": {
+          "tableRows": [
+            {
+              "tableCells": [
+                {"content": [{"paragraph": {"paragraphStyle": {}, "elements": [{"textRun": {"content": "Name\n", "textStyle": {}}}]}}]},
+                {"content": [{"paragraph": {"paragraphStyle": {}, "elements": [{"textRun": {"content": "Value\n", "textStyle": {}}}]}}]}
+              ]
+            },
+            {
+              "tableCells": [
+                {"content": [{"paragraph": {"paragraphStyle": {}, "elements": [{"textRun": {"content": "Alpha\n", "textStyle": {}}}]}}]},
+                {"content": [{"paragraph": {"paragraphStyle": {}, "elements": [{"textRun": {"content": "100\n", "textStyle": {}}}]}}]}
+              ]
+            }
+          ]
+        }
+      },
+      {
+        "paragraph": {
+          "paragraphStyle": {"namedStyleType": "NORMAL_TEXT"},
+          "elements": [
+            {"textRun": {"content": "End of document.\n", "textStyle": {}}}
+          ]
+        }
+      }
+    ]
+  },
+  "lists": {
+    "list1": {
+      "listProperties": {
+        "nestingLevels": [
+          {"glyphType": "GLYPH_TYPE_UNSPECIFIED"},
+          {"glyphType": "GLYPH_TYPE_UNSPECIFIED"}
+        ]
+      }
+    },
+    "list2": {
+      "listProperties": {
+        "nestingLevels": [
+          {"glyphType": "DECIMAL"}
+        ]
+      }
+    }
+  }
+}

@@ -2,6 +2,7 @@
 
 import os
 
+import httpx
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 
@@ -39,12 +40,24 @@ def get_google_credentials(config: dict = None) -> Credentials:
 
     creds = Credentials.from_authorized_user_file(token_path, SCOPES)
 
-    if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-        with open(token_path, "w") as f:
-            f.write(creds.to_json())
+    # The saved token may not have expiry info, so verify by calling Google
+    # If it fails, force a refresh
+    try:
+        resp = httpx.get(
+            "https://www.googleapis.com/oauth2/v1/tokeninfo",
+            params={"access_token": creds.token},
+            timeout=5,
+        )
+        token_valid = resp.status_code == 200
+    except Exception:
+        token_valid = False
 
-    if not creds or not creds.valid:
-        raise ValueError("Google credentials are invalid. Please re-authenticate.")
+    if not token_valid:
+        if creds.refresh_token:
+            creds.refresh(Request())
+            with open(token_path, "w") as f:
+                f.write(creds.to_json())
+        else:
+            raise ValueError("Google credentials expired and no refresh token. Please re-authenticate.")
 
     return creds

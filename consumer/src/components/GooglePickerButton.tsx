@@ -53,28 +53,16 @@ export default function GooglePickerButton({ selectedFiles, onFilesSelected }: P
     }
     const { access_token, api_key, app_id } = tokenRef.current!;
 
-    // View for documents, spreadsheets, PDFs
     const docsView = new window.google.picker.DocsView()
       .setIncludeFolders(true)
-      .setSelectFolderEnabled(false)
-      .setMimeTypes(SUPPORTED_MIMES);
-
-    // Shared drives view
-    const sharedView = new window.google.picker.DocsView()
-      .setIncludeFolders(true)
-      .setSelectFolderEnabled(false)
-      .setMimeTypes(SUPPORTED_MIMES)
-      .setEnableDrives(true);
+      .setSelectFolderEnabled(false);
 
     const picker = new window.google.picker.PickerBuilder()
       .setTitle("Select files to sync")
       .addView(docsView)
-      .addView(sharedView)
       .enableFeature(window.google.picker.Feature.MULTISELECT_ENABLED)
-      .enableFeature(window.google.picker.Feature.SUPPORT_DRIVES)
       .setOAuthToken(access_token)
       .setDeveloperKey(api_key)
-      .setAppId(app_id)
       .setCallback((data: any) => {
         if (data.action === window.google.picker.Action.PICKED) {
           const newFiles = data.docs

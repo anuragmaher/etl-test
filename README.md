@@ -1,6 +1,6 @@
 # ETL Pipeline — Document Ingestion for RAG
 
-Producer-consumer ETL pipeline that pulls documents from Google Drive, converts them to Markdown, generates embeddings, and upserts to Pinecone for RAG/AI ingestion.
+Producer-consumer ETL pipeline that pulls documents from Google Drive and Notion, converts them to Markdown, generates embeddings, and upserts to Pinecone for RAG/AI ingestion.
 
 ## Architecture
 
@@ -8,7 +8,8 @@ Producer-consumer ETL pipeline that pulls documents from Google Drive, converts 
 ┌──────────────────────────────────────────────────────┐
 │  Consumer (React)          http://localhost:5173      │
 │  - Google OAuth login                                │
-│  - Folder picker + file tree with checkboxes         │
+│  - Google Drive file picker (Docs, Sheets, PDF, DOCX)│
+│  - Notion integration (pages + databases)            │
 │  - Pinecone config form                              │
 │  - Dashboard: sync status, document list             │
 └──────────────────┬───────────────────────────────────┘
@@ -16,21 +17,29 @@ Producer-consumer ETL pipeline that pulls documents from Google Drive, converts 
 ┌──────────────────▼───────────────────────────────────┐
 │  Producer (Python + FastAPI)  http://localhost:8000   │
 │  - Google Drive API (list, download)                 │
-│  - Transform: Docs, DOCX, PDF, Sheets → Markdown    │
+│  - Notion API (pages, databases, blocks)             │
+│  - Transform: Docs, DOCX, PDF, Sheets, Notion → MD  │
 │  - Chunk + embed (OpenAI) + upsert (Pinecone)       │
 │  - Sync state tracking (skip unchanged docs)         │
 └──────────────────────────────────────────────────────┘
 ```
 
-## Supported File Types
+## Supported Sources & File Types
 
+### Google Drive
 | Type | Source | Conversion |
 |------|--------|------------|
 | Google Docs | Docs API (JSON) | Headings, lists, tables, inline formatting, multi-tab support |
 | .docx | Drive download | python-docx: headings, bold/italic, lists, tables |
-| PDF | Drive download | pdfplumber: text + table extraction |
+| PDF | Drive download | pdfplumber: text + table extraction (no duplication) |
 | Google Sheets | Export as .xlsx | openpyxl: each sheet → markdown table |
 | .xlsx | Drive download | openpyxl: each sheet → markdown table |
+
+### Notion
+| Type | Source | Conversion |
+|------|--------|------------|
+| Pages | Notion API (blocks) | Headings, paragraphs, lists, to-dos, code, quotes, callouts, toggles, tables, images, bookmarks |
+| Databases | Notion API (query) | All rows → markdown table with all property types (text, number, select, date, checkbox, people, etc.) |
 
 ## Setup
 
@@ -47,7 +56,15 @@ Producer-consumer ETL pipeline that pulls documents from Google Drive, converts 
    - Add `http://localhost:5173/auth/callback` as an authorized redirect URI
    - **API Key** → add to `producer/config.yaml`
 
-### 2. Install Producer
+### 2. Notion Integration (Optional)
+
+1. Go to [notion.so/my-integrations](https://www.notion.so/my-integrations)
+2. Create a new internal integration
+3. Copy the integration token
+4. In Notion, share the pages/databases you want to sync with the integration (Share → invite the integration)
+5. Paste the token in the Setup page of the consumer app
+
+### 3. Install Producer
 
 ```bash
 cd producer
@@ -56,7 +73,7 @@ cp config.example.yaml config.yaml
 # Edit config.yaml and set your api_key
 ```
 
-### 3. Install Consumer
+### 4. Install Consumer
 
 ```bash
 cd consumer
@@ -65,7 +82,7 @@ cp .env.example .env
 # Edit .env and set VITE_GOOGLE_CLIENT_ID
 ```
 
-### 4. Run
+### 5. Run
 
 **Terminal 1 — Producer:**
 ```bash
@@ -81,7 +98,7 @@ npm run dev
 
 Open http://localhost:5173 → Login → Setup → Dashboard → Sync
 
-### 5. CLI Mode (alternative)
+### 6. CLI Mode (alternative)
 
 The producer also works as a standalone CLI:
 
@@ -111,21 +128,24 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 │   │   │   ├── config_routes.py      # Folder/file/Pinecone config endpoints
 │   │   │   ├── sync_routes.py        # Sync trigger, status, document list
 │   │   │   ├── folders_routes.py     # Folder listing + recursive file tree
+│   │   │   ├── notion_routes.py      # Notion token, page browsing, selection
 │   │   │   ├── models.py             # Pydantic schemas
 │   │   │   └── dependencies.py       # Shared deps (config, credentials)
 │   │   ├── sources/
 │   │   │   ├── base.py               # Source ABC + DocumentRecord
-│   │   │   └── google_docs.py        # Google Drive/Docs/Sheets API
+│   │   │   ├── google_docs.py        # Google Drive/Docs/Sheets API
+│   │   │   └── notion.py             # Notion API (pages, databases, blocks)
 │   │   ├── transform/
 │   │   │   ├── gdocs_to_markdown.py  # Google Docs JSON → Markdown
 │   │   │   ├── docx_to_markdown.py   # .docx → Markdown
 │   │   │   ├── pdf_to_markdown.py    # PDF → Markdown
-│   │   │   └── sheet_to_markdown.py  # .xlsx/Sheets → Markdown tables
+│   │   │   ├── sheet_to_markdown.py  # .xlsx/Sheets → Markdown tables
+│   │   │   └── notion_to_markdown.py # Notion blocks/databases → Markdown
 │   │   ├── output/
 │   │   │   ├── markdown_writer.py    # .md files with YAML frontmatter
 │   │   │   └── pinecone_writer.py    # Chunk → embed → upsert to Pinecone
 │   │   └── storage/
-│   │       └── store.py              # Pinecone config file I/O
+│   │       └── store.py              # Pinecone + Notion config file I/O
 │   └── tests/
 │
 ├── consumer/                         # React frontend
@@ -134,10 +154,11 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 │   │   ├── api.ts                    # REST client for producer API
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx         # Google OAuth redirect
-│   │   │   ├── SetupPage.tsx         # Folder picker + file tree + Pinecone config
+│   │   │   ├── SetupPage.tsx         # File picker + Notion + Pinecone config
 │   │   │   └── DashboardPage.tsx     # Sync status + document list
 │   │   └── components/
-│   │       ├── GooglePickerButton.tsx # Google Picker integration
+│   │       ├── GooglePickerButton.tsx # Google Picker file selection
+│   │       ├── NotionSetup.tsx       # Notion connect/browse/select
 │   │       ├── FileTreeView.tsx      # Recursive file tree with checkboxes
 │   │       ├── PineconeConfigForm.tsx # Pinecone/OpenAI key form
 │   │       ├── DocumentList.tsx      # Synced documents table
@@ -147,15 +168,32 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 
 ## API Endpoints
 
+### Auth
 | Method | Path | Description |
 |--------|------|-------------|
 | POST | /auth/google | Exchange OAuth code for tokens |
 | GET | /auth/status | Check authentication status |
 | GET | /auth/token | Get access token for Picker |
+
+### Google Drive
+| Method | Path | Description |
+|--------|------|-------------|
 | GET | /folders | List Google Drive folders |
 | GET | /folders/{id}/files | Recursively list files in a folder |
 | POST | /config/folders | Save selected folder IDs |
 | POST | /config/files | Save selected file IDs |
+
+### Notion
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /notion/token | Save Notion integration token |
+| GET | /notion/status | Check if Notion is configured |
+| GET | /notion/pages | List all pages/databases shared with integration |
+| POST | /notion/pages | Save selected page/database IDs |
+
+### Config & Sync
+| Method | Path | Description |
+|--------|------|-------------|
 | POST | /config/pinecone | Save Pinecone + OpenAI config |
 | GET | /config | Get current config (secrets redacted) |
 | POST | /sync | Trigger sync in background |
@@ -165,12 +203,19 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 ## Data Flow
 
 ```
-Google Drive API → Download (Docs JSON / DOCX / PDF / XLSX bytes)
-    → Transform to Markdown
-    → Write .md file with YAML frontmatter
-    → Chunk (~1000 tokens, 200 overlap)
-    → Embed (OpenAI text-embedding-3-large, 3072 dims)
-    → Upsert to Pinecone (metadata: doc_id, title, url, source_type, text)
+Google Drive API ──→ Download (Docs JSON / DOCX / PDF / XLSX)
+                        ↓
+Notion API ────────→ Fetch blocks / query database
+                        ↓
+                  Transform to Markdown
+                        ↓
+                  Write .md file with YAML frontmatter
+                        ↓
+                  Chunk (~1000 tokens, 200 overlap)
+                        ↓
+                  Embed (OpenAI text-embedding-3-large, 3072 dims)
+                        ↓
+                  Upsert to Pinecone (metadata: doc_id, title, url, source_type, text)
 ```
 
 ## Storage
@@ -182,6 +227,7 @@ Google Drive API → Download (Docs JSON / DOCX / PDF / XLSX bytes)
 | `token.json` | Google OAuth access/refresh tokens |
 | `sync_state.json` | Per-document sync state (last modified, synced at) |
 | `pinecone_config.json` | Pinecone API key, index name, OpenAI key |
+| `notion_config.json` | Notion integration token, selected page IDs |
 | `output/*.md` | Converted markdown files with frontmatter |
 
 ## Tests

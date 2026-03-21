@@ -104,11 +104,15 @@ async def get_access_token():
             creds_data = json.load(f)
         creds_info = creds_data.get("web") or creds_data.get("installed", {})
 
+        # App ID for Picker must be the numeric project number, not the string project ID
+        client_id = creds_info.get("client_id", "")
+        project_number = client_id.split("-")[0] if client_id else ""
+
         return {
             "access_token": creds.token,
             "api_key": config.get("api_key", ""),
-            "client_id": creds_info.get("client_id", ""),
-            "app_id": creds_info.get("project_id", ""),
+            "client_id": client_id,
+            "app_id": project_number,
         }
     except Exception as e:
         raise HTTPException(status_code=401, detail=str(e))

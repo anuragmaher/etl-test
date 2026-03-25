@@ -63,6 +63,13 @@ export const api = {
       body: JSON.stringify({ page_ids: pageIds }),
     }),
 
+  // Ask
+  ask: (question: string, history: { role: string; content: string }[] = []) =>
+    request("/ask", {
+      method: "POST",
+      body: JSON.stringify({ question, history }),
+    }),
+
   // Sync
   triggerSync: () => request("/sync", { method: "POST" }),
   syncStatus: () => request("/sync/status"),

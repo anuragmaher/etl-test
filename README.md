@@ -143,7 +143,8 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 │   │   │   └── notion_to_markdown.py # Notion blocks/databases → Markdown
 │   │   ├── output/
 │   │   │   ├── markdown_writer.py    # .md files with YAML frontmatter
-│   │   │   └── pinecone_writer.py    # Chunk → embed → upsert to Pinecone
+│   │   │   ├── pinecone_writer.py    # Chunk → embed → upsert to Pinecone
+│   │   │   └── sheet_store.py        # Store sheets as CSV + SQLite for querying
 │   │   └── storage/
 │   │       └── store.py              # Pinecone + Notion config file I/O
 │   └── tests/
@@ -155,14 +156,15 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 │   │   ├── pages/
 │   │   │   ├── LoginPage.tsx         # Google OAuth redirect
 │   │   │   ├── SetupPage.tsx         # File picker + Notion + Pinecone config
-│   │   │   └── DashboardPage.tsx     # Sync status + document list
+│   │   │   └── DashboardPage.tsx     # Sync status + document list + Ask AI panel
 │   │   └── components/
 │   │       ├── GooglePickerButton.tsx # Google Picker file selection
 │   │       ├── NotionSetup.tsx       # Notion connect/browse/select
 │   │       ├── FileTreeView.tsx      # Recursive file tree with checkboxes
 │   │       ├── PineconeConfigForm.tsx # Pinecone/OpenAI key form
 │   │       ├── DocumentList.tsx      # Synced documents table
-│   │       └── SyncStatusBadge.tsx   # Status badge with errors/warnings
+│   │       ├── SyncStatusBadge.tsx   # Status badge with errors/warnings
+│   │       └── AskPanel.tsx          # Chat panel for RAG Q&A
 │   └── .env                          # VITE_GOOGLE_CLIENT_ID (gitignored)
 ```
 
@@ -200,8 +202,14 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 | GET | /sync/status | Sync status, stats, errors, warnings |
 | GET | /documents | List synced documents |
 
+### Ask AI
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | /ask | Two-pass Q&A with chat history support |
+
 ## Data Flow
 
+### Ingestion
 ```
 Google Drive API ──→ Download (Docs JSON / DOCX / PDF / XLSX)
                         ↓
@@ -211,11 +219,26 @@ Notion API ────────→ Fetch blocks / query database
                         ↓
                   Write .md file with YAML frontmatter
                         ↓
-                  Chunk (~1000 tokens, 200 overlap)
-                        ↓
-                  Embed (OpenAI text-embedding-3-large, 3072 dims)
-                        ↓
-                  Upsert to Pinecone (metadata: doc_id, title, url, source_type, text)
+              ┌─── Unstructured docs ───┐      ┌─── Spreadsheets ──────┐
+              │ Chunk (~1000 tokens)    │      │ Store in SQLite       │
+              │ Embed (OpenAI)          │      │ Store schema only     │
+              │ Upsert full text        │      │ in Pinecone           │
+              └─── to Pinecone ─────────┘      └───────────────────────┘
+```
+
+### Ask AI (Two-Pass Q&A)
+```
+User question
+    ↓
+Pass 0: Resolve follow-ups using chat history → standalone question
+    ↓
+Pass 1: Embed question → Pinecone search → find relevant source
+    ↓
+    ├── Structured data (sheet)?
+    │     → Pass 2A: LLM generates SQL → execute against SQLite → answer
+    │
+    └── Unstructured data (doc/pdf)?
+          → Pass 2B: Standard RAG → LLM answers from retrieved chunks
 ```
 
 ## Storage
@@ -229,6 +252,8 @@ Notion API ────────→ Fetch blocks / query database
 | `pinecone_config.json` | Pinecone API key, index name, OpenAI key |
 | `notion_config.json` | Notion integration token, selected page IDs |
 | `output/*.md` | Converted markdown files with frontmatter |
+| `data/sheets.db` | SQLite database with sheet data for structured queries |
+| `data/*.csv` | Sheet data exported as CSV files |
 
 ## Tests
 

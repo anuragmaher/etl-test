@@ -1,4 +1,5 @@
 import logging
+import os
 
 from etl.output import markdown_writer
 from etl.sources.base import Source
@@ -9,6 +10,7 @@ from etl.transform import docx_to_markdown
 from etl.transform import pdf_to_markdown
 from etl.transform import sheet_to_markdown
 from etl.transform import notion_to_markdown
+from etl.output.sheet_store import store_sheet
 
 logger = logging.getLogger(__name__)
 
@@ -94,8 +96,34 @@ def run_once(config: dict, pinecone_writer=None) -> dict:
                     last_modified=full_doc.modified_time,
                     markdown_content=markdown,
                 )
-                # Upsert to Pinecone if configured
-                if pinecone_writer:
+
+                # For sheets: also store in SQLite and use schema for Pinecone
+                if full_doc.source_type == "google_sheet" and pinecone_writer:
+                    try:
+                        data_dir = os.path.join(output_dir, "..", "data")
+                        schema = store_sheet(full_doc.raw_content, full_doc.doc_id, full_doc.title, data_dir)
+                        # Store schema description in Pinecone instead of full data
+                        schema_text = f"Spreadsheet: {full_doc.title}\n\n"
+                        for s in schema.get("sheets", []):
+                            schema_text += f"Sheet: {s['sheet_name']}\n"
+                            schema_text += f"Table: {s['table_name']}\n"
+                            schema_text += f"Columns: {', '.join(s['columns'])}\n"
+                            schema_text += f"Rows: {s['row_count']}\n"
+                            schema_text += f"Sample data:\n"
+                            for sample in s.get("sample_rows", []):
+                                schema_text += f"  {sample}\n"
+                            schema_text += "\n"
+                        pinecone_writer.upsert_document(
+                            doc_id=full_doc.doc_id,
+                            title=full_doc.title,
+                            url=full_doc.url,
+                            source_type="structured_sheet",
+                            markdown=schema_text,
+                        )
+                    except Exception:
+                        logger.exception("Failed to store sheet in SQLite: '%s'", full_doc.title)
+                elif pinecone_writer:
+                    # Unstructured docs: store full markdown in Pinecone
                     try:
                         pinecone_writer.upsert_document(
                             doc_id=full_doc.doc_id,

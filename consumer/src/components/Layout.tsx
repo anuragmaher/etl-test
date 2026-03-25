@@ -1,8 +1,13 @@
 import { Link } from "react-router-dom";
 
-export default function Layout({ children }: { children: React.ReactNode }) {
+interface Props {
+  children: React.ReactNode;
+  wide?: boolean;
+}
+
+export default function Layout({ children, wide }: Props) {
   return (
-    <div className="layout">
+    <div className={wide ? "layout layout-wide" : "layout"}>
       <div className="navbar">
         <h1>ETL Pipeline</h1>
         <nav>

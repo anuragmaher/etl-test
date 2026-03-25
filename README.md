@@ -230,16 +230,34 @@ Notion API ────────→ Fetch blocks / query database
 ```
 User question
     ↓
-Pass 0: Resolve follow-ups using chat history → standalone question
+Pass 0: Resolve follow-ups using chat history → standalone question  [LLM]
     ↓
-Pass 1: Embed question → Pinecone search → find relevant source
+Pass 1: Embed question → Pinecone search → find relevant source     [deterministic]
     ↓
-    ├── Structured data (sheet)?
-    │     → Pass 2A: LLM generates SQL → execute against SQLite → answer
+    ├── Structured data (sheet)?                                     [deterministic routing]
+    │     → Pass 2A: LLM generates SQL → execute against SQLite     [LLM + deterministic]
+    │     → If SQL fails, retry with fixed query (1 attempt)         [LLM]
+    │     → If retry fails, fall back to RAG                         [deterministic]
+    │     → LLM generates natural language answer from SQL result    [LLM]
     │
-    └── Unstructured data (doc/pdf)?
-          → Pass 2B: Standard RAG → LLM answers from retrieved chunks
+    └── Unstructured data (doc/pdf)?                                 [deterministic routing]
+          → Pass 2B: Standard RAG → LLM answers from chunks         [LLM]
 ```
+
+### Architecture Notes
+
+**The Q&A pipeline is deterministic with LLM-powered steps, not agentic.**
+
+| Component | Type | Description |
+|-----------|------|-------------|
+| Follow-up resolution (Pass 0) | LLM | Rewrites follow-ups into standalone questions using chat history |
+| Source routing (Pass 1) | Deterministic | Routes to SQL or RAG based on `source_type` metadata tag from Pinecone's top match |
+| SQL generation (Pass 2A) | LLM | Generates SQLite query from schema + question |
+| SQL execution | Deterministic | Runs query against SQLite, returns rows |
+| SQL error retry | LLM | One retry — LLM fixes the failed query |
+| RAG answer (Pass 2B) | LLM | Generates answer from retrieved text chunks |
+
+The routing between structured (SQL) and unstructured (RAG) paths is a simple `if` check on metadata, not an LLM decision. An agentic approach would let the LLM decide the strategy, chain multiple steps, or combine data from both paths — this is not implemented yet.
 
 ## Storage
 

@@ -2,6 +2,7 @@
 
 import json
 import logging
+import os
 import threading
 from datetime import datetime, timezone
 
@@ -169,3 +170,53 @@ async def list_documents():
         ))
 
     return documents
+
+
+@router.delete("/documents/{source_type}/{doc_id}")
+async def delete_document(source_type: str, doc_id: str):
+    """Remove a synced document from state, output, and Pinecone."""
+    config = get_config()
+    state_path = config["state_path"]
+    output_dir = config["output_directory"]
+
+    # Remove from sync state
+    try:
+        with open(state_path) as f:
+            state = json.load(f)
+    except (FileNotFoundError, json.JSONDecodeError):
+        state = {}
+
+    key = f"{source_type}::{doc_id}"
+    title = state.get(key, {}).get("title", "")
+    if key in state:
+        del state[key]
+        with open(state_path, "w") as f:
+            json.dump(state, f, indent=2)
+
+    # Remove markdown file from output
+    if title:
+        import re, glob
+        safe_name = re.sub(r'[^\w\s-]', '', title).strip()
+        safe_name = re.sub(r'\s+', '_', safe_name)[:200]
+        pattern = os.path.join(output_dir, f"{safe_name}*")
+        for filepath in glob.glob(pattern):
+            try:
+                os.remove(filepath)
+                logger.info("Deleted output file: %s", filepath)
+            except Exception:
+                pass
+
+    # Remove from Pinecone
+    if is_pinecone_configured():
+        try:
+            from pinecone import Pinecone
+            pc_config = load_pinecone_config()
+            pc = Pinecone(api_key=pc_config["api_key"])
+            index = pc.Index(pc_config["index_name"])
+            index.delete(filter={"doc_id": {"$eq": doc_id}})
+            logger.info("Deleted Pinecone vectors for doc_id: %s", doc_id)
+        except Exception:
+            logger.warning("Failed to delete from Pinecone for %s", doc_id)
+
+    logger.info("Deleted document: %s (%s)", title, doc_id)
+    return {"status": "ok", "title": title}

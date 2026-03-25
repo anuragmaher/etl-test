@@ -74,4 +74,6 @@ export const api = {
   triggerSync: () => request("/sync", { method: "POST" }),
   syncStatus: () => request("/sync/status"),
   listDocuments: () => request("/documents"),
+  deleteDocument: (sourceType: string, docId: string) =>
+    request(`/documents/${sourceType}/${docId}`, { method: "DELETE" }),
 };

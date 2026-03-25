@@ -205,7 +205,8 @@ python -m etl.main           # Continuous polling (every 5 minutes)
 ### Ask AI
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | /ask | Two-pass Q&A with chat history support |
+| POST | /ask | Agentic Q&A with ReAct loop, chat history, tools |
+| DELETE | /documents/{source_type}/{doc_id} | Remove synced document from state, output, and Pinecone |
 
 ## Data Flow
 
@@ -246,18 +247,33 @@ Pass 1: Embed question → Pinecone search → find relevant source     [determi
 
 ### Architecture Notes
 
-**The Q&A pipeline is deterministic with LLM-powered steps, not agentic.**
+**The Q&A pipeline is agentic — a ReAct loop where the LLM decides what tools to use.**
 
-| Component | Type | Description |
-|-----------|------|-------------|
-| Follow-up resolution (Pass 0) | LLM | Rewrites follow-ups into standalone questions using chat history |
-| Source routing (Pass 1) | Deterministic | Routes to SQL or RAG based on `source_type` metadata tag from Pinecone's top match |
-| SQL generation (Pass 2A) | LLM | Generates SQLite query from schema + question |
-| SQL execution | Deterministic | Runs query against SQLite, returns rows |
-| SQL error retry | LLM | One retry — LLM fixes the failed query |
-| RAG answer (Pass 2B) | LLM | Generates answer from retrieved text chunks |
+The agent has 4 tools:
 
-The routing between structured (SQL) and unstructured (RAG) paths is a simple `if` check on metadata, not an LLM decision. An agentic approach would let the LLM decide the strategy, chain multiple steps, or combine data from both paths — this is not implemented yet.
+| Tool | Description |
+|------|-------------|
+| `list_tables()` | Show available spreadsheet schemas (table names, columns, types) |
+| `sql_query(sql)` | Execute SQL against SQLite — for structured data (sheets) |
+| `search_documents(query)` | Semantic search in Pinecone — for unstructured data (docs, PDFs) |
+| `final_answer(answer)` | Provide the final answer to the user |
+
+The agent follows the **ReAct pattern** (Reason → Act → Observe → repeat):
+1. LLM reasons about what information it needs
+2. Chooses a tool and provides input
+3. Observes the result
+4. Decides if it needs more info or can answer
+5. Can chain up to 8 steps, using multiple tools, combining data from sheets AND documents
+
+Example: "Compare Engineering salaries with the AI features in our vendor docs"
+```
+Step 1: Thought: I need salary data → list_tables()
+Step 2: Thought: Query Engineering salaries → sql_query("SELECT AVG(Salary)...")
+Step 3: Thought: Now I need AI features → search_documents("AI features vendor")
+Step 4: Thought: I have both → final_answer("Avg salary is X, AI features include Y...")
+```
+
+Each answer in the UI shows expandable agent steps with the full reasoning chain.
 
 ## Storage
 

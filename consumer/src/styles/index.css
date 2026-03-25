@@ -146,6 +146,19 @@ table th {
 
 table tr:hover { background: #fafafa; }
 
+.btn-delete {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #ccc;
+  font-size: 16px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+.btn-delete:hover { color: #e53935; background: #fce4ec; }
+.btn-delete:disabled { cursor: not-allowed; opacity: 0.5; }
+
 .message {
   padding: 12px 16px;
   border-radius: 6px;
@@ -393,6 +406,82 @@ table tr:hover { background: #fafafa; }
   font-family: 'SF Mono', Monaco, Consolas, monospace;
   white-space: pre-wrap;
   word-break: break-all;
+}
+
+/* Agent Steps */
+.ask-steps {
+  margin-top: 8px;
+  margin-right: 20px;
+}
+
+.ask-steps-toggle {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 12px;
+  color: #999;
+  padding: 4px 0;
+  font-family: inherit;
+}
+
+.ask-steps-toggle:hover { color: #666; }
+
+.ask-steps-list {
+  margin-top: 6px;
+  border-left: 2px solid #e0e0e0;
+  padding-left: 12px;
+}
+
+.ask-step {
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+
+.ask-step-thought {
+  color: #666;
+  font-style: italic;
+  margin-bottom: 3px;
+}
+
+.ask-step-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ask-step-tool {
+  background: #e8f0fe;
+  color: #4285f4;
+  padding: 1px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  font-size: 11px;
+}
+
+.ask-step-input {
+  background: #f5f5f5;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
+  font-size: 11px;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ask-step-result {
+  margin-top: 3px;
+  background: #fafafa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #555;
+  max-height: 60px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  font-family: 'SF Mono', Monaco, Consolas, monospace;
 }
 
 .ask-input-area {

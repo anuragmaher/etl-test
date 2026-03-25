@@ -81,7 +81,7 @@ export default function DashboardPage() {
 
           <div className="card">
             <h2>Synced Documents</h2>
-            <DocumentList documents={documents} />
+            <DocumentList documents={documents} onDocumentDeleted={loadData} />
           </div>
         </div>
 

@@ -11,12 +11,20 @@ interface Source {
   score: number;
 }
 
+interface Step {
+  thought: string;
+  tool: string;
+  tool_input: string;
+  result: string;
+}
+
 interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
   method?: string;
   sql_query?: string;
+  steps?: Step[];
 }
 
 export default function AskPanel() {
@@ -38,12 +46,18 @@ export default function AskPanel() {
     setLoading(true);
 
     try {
-      // Build history from previous messages
       const history = messages.map((m) => ({ role: m.role, content: m.content }));
       const res = await api.ask(question, history);
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: res.answer, sources: res.sources, method: res.method, sql_query: res.sql_query },
+        {
+          role: "assistant",
+          content: res.answer,
+          sources: res.sources,
+          method: res.method,
+          sql_query: res.sql_query,
+          steps: res.steps,
+        },
       ]);
     } catch (err: any) {
       setMessages((prev) => [
@@ -66,14 +80,14 @@ export default function AskPanel() {
     <div className="ask-panel">
       <div className="ask-header">
         <h3>Ask AI</h3>
-        <span className="ask-subtitle">Ask questions about your synced documents</span>
+        <span className="ask-subtitle">Agentic Q&A — searches docs and queries data</span>
       </div>
 
       <div className="ask-messages">
         {messages.length === 0 && (
           <div className="ask-empty">
             <p>Ask a question about your documents.</p>
-            <p className="ask-hint">e.g. "What AI features does the product have?"</p>
+            <p className="ask-hint">The AI agent will decide whether to search documents, query spreadsheets, or both.</p>
           </div>
         )}
 
@@ -82,16 +96,23 @@ export default function AskPanel() {
             <div className="ask-message-content">
               {msg.content}
             </div>
+
             {msg.method && (
               <div className="ask-method">
-                {msg.method === "sql" ? "via SQL query" : "via document search"}
+                {msg.method}
               </div>
             )}
+
             {msg.sql_query && (
               <div className="ask-sql">
                 <code>{msg.sql_query}</code>
               </div>
             )}
+
+            {msg.steps && msg.steps.length > 0 && (
+              <AgentSteps steps={msg.steps} />
+            )}
+
             {msg.sources && msg.sources.length > 0 && (
               <div className="ask-sources">
                 <span className="ask-sources-label">Sources:</span>
@@ -114,7 +135,7 @@ export default function AskPanel() {
 
         {loading && (
           <div className="ask-message assistant">
-            <div className="ask-message-content ask-typing">Thinking...</div>
+            <div className="ask-message-content ask-typing">Agent is thinking...</div>
           </div>
         )}
 
@@ -134,6 +155,36 @@ export default function AskPanel() {
           Send
         </button>
       </div>
+    </div>
+  );
+}
+
+function AgentSteps({ steps }: { steps: Step[] }) {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <div className="ask-steps">
+      <button className="ask-steps-toggle" onClick={() => setExpanded(!expanded)}>
+        {expanded ? "▾" : "▸"} {steps.length} agent step{steps.length !== 1 ? "s" : ""}
+      </button>
+      {expanded && (
+        <div className="ask-steps-list">
+          {steps.map((step, i) => (
+            <div key={i} className="ask-step">
+              <div className="ask-step-thought">{step.thought}</div>
+              <div className="ask-step-action">
+                <span className="ask-step-tool">{step.tool}</span>
+                {step.tool !== "final_answer" && (
+                  <code className="ask-step-input">{step.tool_input}</code>
+                )}
+              </div>
+              {step.result && (
+                <div className="ask-step-result">{step.result}</div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
